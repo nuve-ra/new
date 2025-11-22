@@ -1,9 +1,27 @@
-import React, { useContext } from "react";
+import React, { useContext, useState, useRef } from "react";
 import { assets } from "./assets/frontend-assets/assets"
 import { PlayerContext } from "./PlayerContext";
 
 const Player = () => {
-    const { seekBg, seekBar, playStatus, play, pause, track, previous, next, seekSong, time } = useContext(PlayerContext);
+    const { 
+        seekBg, 
+        seekBar, 
+        playStatus, 
+        play, 
+        pause, 
+        track, 
+        previous, 
+        next, 
+        seekSong, 
+        time, 
+        volume, 
+        isMuted, 
+        handleVolumeChange, 
+        toggleMute 
+    } = useContext(PlayerContext);
+    
+    const [showVolumeSlider, setShowVolumeSlider] = useState(false);
+    const volumeRef = useRef(null);
 
     if (!track) return null;
 
@@ -38,13 +56,62 @@ const Player = () => {
                 </div>
             </div>
 
-            <div className='hidden lg:flex items-center gap-3 w-1/4 justify-end'>
+            <div className='hidden lg:flex items-center gap-3 w-1/4 justify-end relative'>
                 <img className="w-4 h-4 cursor-pointer opacity-70 hover:opacity-100" src={assets.plays_icon} alt="" />
                 <img className="w-4 h-4 cursor-pointer opacity-70 hover:opacity-100" src={assets.mic_icon} alt="" />
                 <img className="w-4 h-4 cursor-pointer opacity-70 hover:opacity-100" src={assets.queue_icon} alt="" />
-                <img className="w-4 h-4 cursor-pointer opacity-70 hover:opacity-100" src={assets.volume_icon} alt="" />
-                <div className="w-24 bg-gray-600 h-1 rounded-full cursor-pointer">
-                    <div className="w-1/2 bg-white h-1 rounded-full"></div>
+                <div className="flex items-center gap-2" ref={volumeRef}>
+                    <button 
+                        onClick={toggleMute}
+                        className="text-white hover:opacity-100 opacity-70 transition-opacity"
+                        aria-label={isMuted ? 'Unmute' : 'Mute'}
+                    >
+                        {isMuted ? (
+    <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
+        <path fillRule="evenodd" d="M9.383 3.076A1 1 0 0110 4v12a1 1 0 01-1.707.707L4.586 13H2a1 1 0 01-1-1V8a1 1 0 011-1h2.586l3.707-3.707a1 1 0 011.09-.217zM14.657 2.929a1 1 0 011.414 0 9 9 0 010 12.728 1 1 0 01-1.414-1.414 7 7 0 000-9.9 1 1 0 010-1.414z" clipRule="evenodd" />
+        <path fillRule="evenodd" d="M11.707 5.293a1 1 0 011.414 0 5 5 0 010 7.072 1 1 0 01-1.414-1.414 3 3 0 000-4.244 1 1 0 010-1.414z" clipRule="evenodd" />
+        {/* Cross line for mute state */}
+        <line x1="3" y1="3" x2="17" y2="17" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
+    </svg>
+) : volume > 0.5 ? (
+    <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
+        <path fillRule="evenodd" d="M9.383 3.076A1 1 0 0110 4v12a1 1 0 01-1.707.707L4.586 13H2a1 1 0 01-1-1V8a1 1 0 011-1h2.586l3.707-3.707a1 1 0 011.09-.217zM14.657 2.929a1 1 0 011.414 0 9 9 0 010 12.728 1 1 0 01-1.414-1.414 7 7 0 000-9.9 1 1 0 010-1.414z" clipRule="evenodd" />
+        <path fillRule="evenodd" d="M11.707 5.293a1 1 0 011.414 0 5 5 0 010 7.072 1 1 0 01-1.414-1.414 3 3 0 000-4.244 1 1 0 010-1.414z" clipRule="evenodd" />
+    </svg>
+) : (
+    <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
+        <path fillRule="evenodd" d="M9.383 3.076A1 1 0 0110 4v12a1 1 0 01-1.707.707L4.586 13H2a1 1 0 01-1-1V8a1 1 0 011-1h2.586l3.707-3.707a1 1 0 011.09-.217z" clipRule="evenodd" />
+    </svg>
+)}
+                    </button>
+                    <div 
+                        className="relative group"
+                        onMouseEnter={() => setShowVolumeSlider(true)}
+                        onMouseLeave={() => setShowVolumeSlider(false)}
+                    >
+                        <div className="w-24 h-1 bg-gray-600 rounded-full cursor-pointer relative">
+                            <div 
+                                className="h-1 bg-white rounded-full absolute left-0 top-0 bottom-0"
+                                style={{ width: `${isMuted ? 0 : volume * 100}%` }}
+                            ></div>
+                        </div>
+                        {showVolumeSlider && (
+                            <div className="absolute bottom-full left-1/2 transform -translate-x-1/2 -translate-y-2 mb-2 w-32 bg-gray-800 p-2 rounded shadow-lg">
+                                <input
+                                    type="range"
+                                    min="0"
+                                    max="1"
+                                    step="0.01"
+                                    value={isMuted ? 0 : volume}
+                                    onChange={handleVolumeChange}
+                                    className="w-full h-1 bg-gray-600 rounded-lg appearance-none cursor-pointer"
+                                    style={{
+                                        background: `linear-gradient(to right, #fff 0%, #fff ${(isMuted ? 0 : volume) * 100}%, #4B5563 ${(isMuted ? 0 : volume) * 100}%, #4B5563 100%)`
+                                    }}
+                                />
+                            </div>
+                        )}
+                    </div>
                 </div>
             </div>
         </div>

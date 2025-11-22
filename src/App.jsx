@@ -20,8 +20,25 @@ const App = () => {
                 </Routes>
             </div>
             {songsData.length > 0 && <Player />}
-            {track && <audio ref={audioRef} src={track ? track.file : ""} preload="auto"></audio>}
-        </div>
+// In App.jsx, update the audio element:
+{track && (
+    <audio
+        ref={audioRef}
+        src={track.file}
+        preload="auto"
+        onError={(e) => {
+            console.error('Audio error details:', {
+                error: e,
+                src: e.target.src,
+                errorMessage: e.target.error?.message || 'Unknown error',
+                readyState: e.target.readyState
+            });
+            toast.error('Failed to load audio: ' + (e.target.error?.message || 'Unknown error'));
+        }}
+        onCanPlay={() => console.log('Audio can play:', track.file)}
+        onPlay={() => console.log('Audio started playing')}
+    />
+)}       </div>
     )
 }
 export default App;

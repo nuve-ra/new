@@ -29,6 +29,9 @@ const PlayerContextProvider = (props) => {
     });
     const [lastClickedId, setLastClickedId] = useState(null);
     const [lastClickTime, setLastClickTime] = useState(0);
+    const [volume, setVolume] = useState(0.7); // Default volume 70%
+    const [isMuted, setIsMuted] = useState(false);
+    const previousVolume = useRef(0.7); // Store volume before mute
 
     const play = async () => {
         if (track) {
@@ -47,7 +50,7 @@ const PlayerContextProvider = (props) => {
         
         if (id === lastClickedId && now - lastClickTime < 500) {
             // Double click detected
-            toast.info("Song is already selected! 🎵", {
+            toast.info("Song is already selected! ", {
                 position: "top-right",
                 autoClose: 2000,
                 hideProgressBar: false,
@@ -64,7 +67,7 @@ const PlayerContextProvider = (props) => {
                 // Same song clicked
                 if (playStatus) {
                     pause();
-                    toast.info("Song paused ⏸️", {
+                    toast.info("Song paused ", {
                         position: "top-right",
                         autoClose: 2000,
                         hideProgressBar: false,
@@ -74,7 +77,7 @@ const PlayerContextProvider = (props) => {
                     });
                 } else {
                     await play();
-                    toast.success("Song resumed ▶️", {
+                    toast.success("Song resumed ", {
                         position: "top-right",
                         autoClose: 2000,
                         hideProgressBar: false,
@@ -85,17 +88,30 @@ const PlayerContextProvider = (props) => {
                 }
             } else {
                 // New song selected
+                // Pause current track if playing
+                if (playStatus && audioRef.current) {
+                    audioRef.current.pause();
+                }
+                
                 setTrack(songToPlay);
-                await audioRef.current.play();
-                setPlayStatus(true);
-                toast.success(`Now playing: ${songToPlay.name} 🎵`, {
-                    position: "top-right",
-                    autoClose: 2000,
-                    hideProgressBar: false,
-                    closeOnClick: true,
-                    pauseOnHover: true,
-                    draggable: true,
-                });
+                // Small timeout to ensure state updates before playing
+                setTimeout(async () => {
+                    try {
+                        await audioRef.current.play();
+                        setPlayStatus(true);
+                        toast.success(`Now playing: ${songToPlay.name} `, {
+                            position: "top-right",
+                            autoClose: 2000,
+                            hideProgressBar: false,
+                            closeOnClick: true,
+                            pauseOnHover: true,
+                            draggable: true,
+                        });
+                    } catch (error) {
+                        console.error('Error playing song:', error);
+                        setPlayStatus(false);
+                    }
+                }, 50);
             }
         }
 
@@ -127,9 +143,8 @@ const PlayerContextProvider = (props) => {
 
     const getSongsData = async () => {
         try {
-            // Prevent multiple rapid requests
             const now = Date.now();
-            if (now - lastFetchAttempt < 5000) { // 5 seconds cooldown
+            if (now - lastFetchAttempt < 5000) {
                 return;
             }
             setLastFetchAttempt(now);
@@ -137,12 +152,16 @@ const PlayerContextProvider = (props) => {
             setLoading(true);
             console.log('Fetching songs from:', endpoints.songsList);
             const response = await axios.get(endpoints.songsList);
-            console.log('Songs response:', response.data);
+            console.log('Full songs response:', JSON.stringify(response.data, null, 2)); // Log the full response
             
             if (response.data?.success && Array.isArray(response.data.songs)) {
-                // Log each song's album ID to help with debugging
                 response.data.songs.forEach(song => {
-                    console.log(`Song: ${song.name}, Album ID: ${song.album}`);
+                    console.log('Song data:', {
+                        name: song.name,
+                        file: song.file,
+                        album: song.album,
+                        id: song._id
+                    });
                 });
                 setSongsData(response.data.songs);
                 if (response.data.songs.length > 0 && !track) {
@@ -154,13 +173,7 @@ const PlayerContextProvider = (props) => {
             }
         } catch (error) {
             console.error("Error fetching songs:", error);
-            if (error.code === 'ECONNRESET') {
-                toast.error("Connection lost. Retrying...");
-                // Retry after 5 seconds
-                setTimeout(getSongsData, 5000);
-            } else {
-                toast.error(error.response?.data?.message || "Error loading songs");
-            }
+            toast.error(error.response?.data?.message || "Error loading songs");
         } finally {
             setLoading(false);
         }
@@ -257,6 +270,48 @@ const PlayerContextProvider = (props) => {
         }
     }, [track]); // Re-run when track changes
 
+    // Handle volume change
+    const handleVolumeChange = (e) => {
+        const newVolume = parseFloat(e.target.value);
+        setVolume(newVolume);
+        if (audioRef.current) {
+            audioRef.current.volume = newVolume;
+        }
+        // If volume is set to 0, consider it as mute
+        if (newVolume === 0) {
+            setIsMuted(true);
+        } else if (isMuted) {
+            setIsMuted(false);
+        }
+    };
+
+    // Toggle mute/unmute
+    const toggleMute = () => {
+        if (isMuted) {
+            // Unmute and restore previous volume
+            if (audioRef.current) {
+                audioRef.current.volume = previousVolume.current || 0.7;
+                setVolume(previousVolume.current || 0.7);
+            }
+            setIsMuted(false);
+        } else {
+            // Mute and store current volume
+            if (audioRef.current) {
+                previousVolume.current = audioRef.current.volume;
+                audioRef.current.volume = 0;
+                setVolume(0);
+            }
+            setIsMuted(true);
+        }
+    };
+
+    // Set initial volume when component mounts or audioRef changes
+    useEffect(() => {
+        if (audioRef.current) {
+            audioRef.current.volume = volume;
+        }
+    }, [audioRef]);
+
     // Fetch initial data
     useEffect(() => {
         getSongsData();
@@ -284,6 +339,10 @@ const PlayerContextProvider = (props) => {
             playStatus,
             time,
             loading,
+            volume,
+            isMuted,
+            handleVolumeChange,
+            toggleMute,
             play,
             pause,
             playWithId,
